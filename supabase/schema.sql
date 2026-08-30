@@ -53,3 +53,12 @@ group by nickname;
 -- 외부 접근 차단: API는 service role 키로만 접근하므로 RLS로 anon 접근을 막는다
 alter table games enable row level security;
 alter table guesses enable row level security;
+
+-- "Automatically expose new tables"를 끈 프로젝트에서는 service_role에도
+-- 권한이 자동 부여되지 않으므로 명시적으로 부여한다 (RLS는 service_role을 우회)
+grant usage on schema public to service_role;
+grant select, insert, update on public.games to service_role;
+grant select, insert on public.guesses to service_role;
+grant usage, select on all sequences in schema public to service_role;
+grant select on public.rankings to service_role;
+grant execute on function public.increment_try(uuid, boolean) to service_role;
