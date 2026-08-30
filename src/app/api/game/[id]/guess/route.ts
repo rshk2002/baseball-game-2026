@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isWin, judge, validateGuess } from "@/lib/game";
 import { getStore } from "@/lib/store";
+import { clientKey, rateLimit } from "@/lib/rate-limit";
 
 /**
  * POST /api/game/[id]/guess — 판정.
@@ -11,6 +12,10 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
+
+  if (!rateLimit(`guess:${clientKey(request)}`).allowed) {
+    return NextResponse.json({ error: "RATE_LIMITED" }, { status: 429 });
+  }
 
   let body: { guess?: string };
   try {

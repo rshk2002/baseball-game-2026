@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generateAnswer, validateNickname } from "@/lib/game";
 import { getStore } from "@/lib/store";
+import { clientKey, rateLimit } from "@/lib/rate-limit";
 
 /** POST /api/game — 게임 생성. 정답은 서버에만 저장하고 gameId만 반환한다. */
 export async function POST(request: NextRequest) {
+  if (!rateLimit(`create:${clientKey(request)}`).allowed) {
+    return NextResponse.json({ error: "RATE_LIMITED" }, { status: 429 });
+  }
+
   let body: { nickname?: string };
   try {
     body = await request.json();

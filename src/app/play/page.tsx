@@ -23,6 +23,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   DUPLICATE_DIGIT: "같은 숫자는 두 번 쓸 수 없어요.",
   GAME_NOT_FOUND: "게임을 찾을 수 없어요. 새 게임을 시작해주세요.",
   GAME_ALREADY_ENDED: "이미 끝난 게임이에요. 새 게임을 시작해주세요.",
+  RATE_LIMITED: "요청이 너무 많아요. 잠시 후 다시 시도해주세요.",
 };
 
 function errorMessage(code: string): string {
