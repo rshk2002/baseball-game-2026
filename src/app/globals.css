@@ -1,26 +1,76 @@
 @import "tailwindcss";
 
+/* 야구장 전광판 테마 (다크 고정) */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #0b1220;
+  --surface: #121c30;
+  --surface-raised: #1a2740;
+  --border: #263752;
+  --foreground: #e8eef7;
+  --muted: #8fa3bf;
+  --accent: #ffb020; /* 전광판 앰버 */
+  --strike: #34d399;
+  --ball: #fbbf24;
+  --out: #64748b;
 }
 
 @theme inline {
   --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-border-line: var(--border);
   --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-strike: var(--strike);
+  --color-ball: var(--ball);
+  --color-out: var(--out);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+body {
+  background: var(--background);
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(255, 176, 32, 0.08), transparent),
+    radial-gradient(ellipse 60% 40% at 80% 110%, rgba(52, 211, 153, 0.05), transparent);
+  color: var(--foreground);
+  font-family: var(--font-geist-sans), "Apple SD Gothic Neo", sans-serif;
+  min-height: 100dvh;
+}
+
+@keyframes confetti-fall {
+  0% {
+    transform: translateY(-10vh) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(105vh) rotate(720deg);
+    opacity: 0.4;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+.confetti-piece {
+  position: fixed;
+  top: 0;
+  width: 10px;
+  height: 14px;
+  pointer-events: none;
+  animation: confetti-fall linear forwards;
+  z-index: 50;
+}
+
+@keyframes pop-in {
+  0% {
+    transform: scale(0.85);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.pop-in {
+  animation: pop-in 0.25s ease-out;
 }
