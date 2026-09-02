@@ -35,6 +35,9 @@ export const metadata: Metadata = {
     title: `${SITE_NAME} — 무료 숫자 추리 게임`,
     description: SITE_DESCRIPTION,
   },
+  verification: {
+    google: "0gIlX1W7cLYjfLHtndrXhTWwpyhKytmiHA3eAhhHMQY",
+  },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
