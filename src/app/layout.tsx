@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
+import { SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "@/lib/site";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -14,8 +15,26 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "숫자야구 2026",
-  description: "중복 없는 3자리 숫자를 추리하는 숫자야구 게임",
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: `${SITE_NAME} — 무료 숫자 추리 게임`,
+    template: `%s — ${SITE_NAME}`,
+  },
+  description: SITE_DESCRIPTION,
+  keywords: ["숫자야구", "숫자야구 게임", "야구 게임", "숫자 추리 게임", "두뇌 게임", "무료 게임"],
+  openGraph: {
+    type: "website",
+    locale: "ko_KR",
+    url: SITE_URL,
+    siteName: SITE_NAME,
+    title: `${SITE_NAME} — 무료 숫자 추리 게임`,
+    description: SITE_DESCRIPTION,
+  },
+  twitter: {
+    card: "summary",
+    title: `${SITE_NAME} — 무료 숫자 추리 게임`,
+    description: SITE_DESCRIPTION,
+  },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

@@ -1,6 +1,10 @@
 import Link from "next/link";
 
-export const metadata = { title: "게임 규칙 — 숫자야구 2026" };
+export const metadata = {
+  title: "게임 규칙",
+  description:
+    "숫자야구 게임 규칙: 중복 없는 3자리 숫자를 추리하세요. 스트라이크·볼·아웃 판정 기준과 예시를 확인할 수 있어요.",
+};
 
 export default function InstructionPage() {
   return (
