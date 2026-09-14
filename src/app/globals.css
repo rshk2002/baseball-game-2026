@@ -74,3 +74,89 @@ body {
 .pop-in {
   animation: pop-in 0.25s ease-out;
 }
+
+/* ── 투구 연출 스테이지 (components/PitchStage.tsx) ─────────────────
+   상태 클래스(is-*)는 부모가 붙이고, 여기서는 각 부위의 keyframes만 정의한다.
+   SVG 좌표계(viewBox 0 0 320 128) 기준 transform-origin을 쓰기 위해 transform-box: view-box. */
+/* SVG는 meet로 전체를 보여주고(viewBox 320x128), 카드가 더 넓을 때 좌우 여백은
+   그라운드 색을 CSS로 이어 채운다. 그라운드는 viewBox의 아래 28/128 = 21.875%. */
+.pitch-stage {
+  background-image: linear-gradient(
+    to top,
+    #0f2a1e calc(21.875% - 1px),
+    #1f4a36 calc(21.875% - 1px),
+    #1f4a36 21.875%,
+    transparent 21.875%
+  );
+}
+.pitch-stage .ps-pitcher  { transform-box: view-box; transform-origin: 52px 100px; rotate: 0deg; }
+.pitch-stage .ps-arm      { transform-box: view-box; transform-origin: 56px 46px; rotate: 0deg; }
+.pitch-stage .ps-handball { opacity: 1; }
+.pitch-stage .ps-ball     { transform: translate(71px, 32px); opacity: 0; }
+.pitch-stage .ps-trail    { opacity: 0; }
+.pitch-stage .ps-pop      { transform-box: view-box; transform-origin: 256px 56px; opacity: 0; }
+.pitch-stage .ps-umpire   { transform-box: view-box; transform-origin: 292px 100px; }
+.pitch-stage .ps-ump-arm  { transform-box: view-box; transform-origin: 298px 48px; rotate: 0deg; }
+.pitch-stage .ps-flash    { opacity: 0; }
+
+/* 1) 투구: 와인드업 → 릴리스(200ms) → 팔로스루. 공은 450ms에 미트 도착.
+   caught 상태에서도 같은 애니메이션을 유지해 마지막 프레임(포구)에 정지시킨다. */
+.pitch-stage.is-throw .ps-arm,      .pitch-stage.is-caught .ps-arm      { animation: ps-pitch-arm 0.45s cubic-bezier(0.45, 0, 0.75, 0.6) forwards; }
+.pitch-stage.is-throw .ps-pitcher,  .pitch-stage.is-caught .ps-pitcher  { animation: ps-pitch-body 0.45s ease-in-out forwards; }
+.pitch-stage.is-throw .ps-handball, .pitch-stage.is-caught .ps-handball { animation: ps-handball 0.45s linear forwards; }
+.pitch-stage.is-throw .ps-ball,     .pitch-stage.is-caught .ps-ball     { animation: ps-ball-flight 0.25s linear 0.2s forwards; }
+.pitch-stage.is-throw .ps-trail                                         { animation: ps-trail 0.25s linear 0.2s forwards; }
+
+/* 2) 판정 */
+.pitch-stage.is-strike .ps-pop,
+.pitch-stage.is-strikeout .ps-pop,
+.pitch-stage.is-ballcall .ps-pop      { animation: ps-pop 0.35s ease-out forwards; }
+.pitch-stage.is-strike .ps-ump-arm,
+.pitch-stage.is-strikeout .ps-ump-arm { animation: ps-ump-strike 0.28s cubic-bezier(0.3, 1.5, 0.5, 1) forwards; }
+.pitch-stage.is-ballcall .ps-ump-arm  { animation: ps-ump-ball 0.3s ease-out forwards; }
+.pitch-stage.is-strikeout .ps-umpire  { animation: ps-ump-hop 0.3s ease-out; }
+.pitch-stage.is-strikeout .ps-flash   { animation: ps-flash 0.6s ease-out forwards; }
+.pitch-stage.is-strike .ps-ball,
+.pitch-stage.is-strikeout .ps-ball,
+.pitch-stage.is-ballcall .ps-ball     { animation: ps-ball-held 0.6s ease-in forwards; }
+.pitch-stage.is-nothing .ps-ball      { animation: ps-ball-drop 0.6s cubic-bezier(0.4, 0, 0.8, 0.4) forwards; }
+
+/* 3) 복귀: 세트 포지션으로 부드럽게 */
+.pitch-stage.is-idle .ps-arm,
+.pitch-stage.is-idle .ps-pitcher,
+.pitch-stage.is-idle .ps-ump-arm { transition: rotate 0.35s ease; }
+
+@keyframes ps-pitch-arm {
+  0%   { rotate: 0deg; }
+  33%  { rotate: -40deg; }  /* 와인드업 */
+  44%  { rotate: 30deg; }   /* 릴리스 */
+  100% { rotate: 115deg; }  /* 팔로스루 */
+}
+@keyframes ps-pitch-body { 0% { rotate: 0deg; } 33% { rotate: -6deg; } 100% { rotate: 10deg; } }
+@keyframes ps-handball   { 0%, 43% { opacity: 1; } 44%, 100% { opacity: 0; } }
+@keyframes ps-ball-flight {
+  0%   { transform: translate(71px, 32px); opacity: 1; }
+  50%  { transform: translate(165px, 38px); opacity: 1; }
+  100% { transform: translate(256px, 56px); opacity: 1; }
+}
+@keyframes ps-trail { 0% { opacity: 0; } 40% { opacity: 0.5; } 100% { opacity: 0; } }
+@keyframes ps-pop { 0% { opacity: 0.9; transform: scale(1); } 100% { opacity: 0; transform: scale(2.4); } }
+@keyframes ps-ball-held {
+  0%, 60% { transform: translate(256px, 56px); opacity: 1; }
+  100%    { transform: translate(256px, 56px); opacity: 0; }
+}
+@keyframes ps-ball-drop {
+  0%   { transform: translate(256px, 56px); opacity: 1; }
+  45%  { transform: translate(262px, 96px); opacity: 1; }
+  60%  { transform: translate(272px, 88px); opacity: 1; }
+  100% { transform: translate(335px, 98px); opacity: 1; }
+}
+@keyframes ps-ump-strike { from { rotate: 0deg; } to { rotate: -150deg; } } /* 펀치: 팔을 위로 */
+@keyframes ps-ump-ball   { from { rotate: 0deg; } to { rotate: -80deg; } }  /* 볼: 팔을 옆으로 */
+@keyframes ps-ump-hop    { 0%, 100% { translate: 0 0; } 40% { translate: 0 -5px; } }
+@keyframes ps-flash      { 0% { opacity: 0.35; } 100% { opacity: 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .pitch-stage *, .pitch-stage .pop-in { animation: none !important; transition: none !important; }
+  .pitch-stage .ps-ball { opacity: 0 !important; }
+}

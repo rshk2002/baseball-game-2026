@@ -14,7 +14,7 @@ export default function InstructionPage() {
       <section className="rounded-2xl border border-border-line bg-surface p-6 leading-relaxed">
         <p>
           컴퓨터가 <b>0~9 중 중복 없는 숫자 3자리</b>를 숨겼습니다. 여러분은
-          타자가 되어 그 숫자를 추리합니다.
+          투수가 되어 숫자 3개를 던지고, 심판이 스트라이크와 볼을 판정합니다.
         </p>
         <ul className="mt-4 flex flex-col gap-2">
           <li>
@@ -33,12 +33,12 @@ export default function InstructionPage() {
             <span className="mr-2 rounded-md bg-out/15 px-2 py-0.5 font-mono font-bold text-out">
               OUT
             </span>
-            정답에 없는 숫자예요
+            정답에 없는 숫자예요 (셋 다 OUT이면 <b>낫싱</b>)
           </li>
         </ul>
         <p className="mt-4">
-          <b className="text-accent">3 스트라이크</b>가 되면 승리! 시도 횟수
-          제한은 없지만, 적게 시도할수록 랭킹에 유리해요.
+          <b className="text-accent">3 스트라이크</b>가 되면 정답! 투구 수
+          제한은 없지만, 적게 던질수록 랭킹에 유리해요.
         </p>
       </section>
 
