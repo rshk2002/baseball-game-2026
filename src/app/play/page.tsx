@@ -3,6 +3,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import Confetti from "@/components/Confetti";
+import PitchStage, {
+  pitchStateFor,
+  type PitchResult,
+  type PitchState,
+} from "@/components/PitchStage";
 import { ANSWER_LENGTH, validateNickname } from "@/lib/game";
 
 type HistoryItem = {
@@ -30,6 +35,33 @@ function errorMessage(code: string): string {
   return ERROR_MESSAGES[code] ?? "오류가 발생했어요. 잠시 후 다시 시도해주세요.";
 }
 
+/* 투구 연출 타이밍 (globals.css의 keyframes와 맞춰야 함) */
+const PITCH_MS = 450; // 와인드업 → 공이 미트에 도착
+const CAUGHT_MIN_MS = 120; // 포구 후 심판이 뜸 들이는 최소 시간
+const CALL_HOLD_MS = 700; // 판정 콜을 보여주는 시간
+const WIN_HOLD_MS = 900; // 정답 콜 후 결과 오버레이로 넘어가기까지
+
+const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+
+function prefersReducedMotion(): boolean {
+  return (
+    typeof window !== "undefined" &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches
+  );
+}
+
+/** 스크린리더용 판정 문구 */
+function describeResult(r: PitchResult): string {
+  if (r.strike === ANSWER_LENGTH) return "정답입니다!";
+  if (r.strike === 0 && r.ball === 0) return "낫싱";
+  return [
+    r.strike > 0 ? `${r.strike} 스트라이크` : "",
+    r.ball > 0 ? `${r.ball} 볼` : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
 export default function PlayPage() {
   const [phase, setPhase] = useState<Phase>("nickname");
   const [nickname, setNickname] = useState("");
@@ -45,6 +77,8 @@ export default function PlayPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [confirmingGiveUp, setConfirmingGiveUp] = useState(false);
+  const [pitch, setPitch] = useState<PitchState>("idle");
+  const [lastResult, setLastResult] = useState<PitchResult | null>(null);
   const startTimeRef = useRef(0);
 
   useEffect(() => {
@@ -63,6 +97,9 @@ export default function PlayPage() {
     for (const item of history) for (const d of item.guess) set.add(d);
     return set;
   }, [history]);
+
+  // 공이 날아가는 동안은 입력 잠금 (판정이 나오면 바로 다음 투구 준비 가능)
+  const pitching = pitch === "throw" || pitch === "caught";
 
   async function startGame() {
     const validation = validateNickname(nickname);
@@ -92,6 +129,8 @@ export default function PlayPage() {
       setHistory([]);
       setGuess("");
       setResult(null);
+      setPitch("idle");
+      setLastResult(null);
       startTimeRef.current = Date.now();
       setPhase("playing");
     } catch {
@@ -102,46 +141,76 @@ export default function PlayPage() {
   }
 
   function pressDigit(digit: string) {
+    if (pitching) return;
     setError("");
     if (guess.length >= ANSWER_LENGTH || guess.includes(digit)) return;
     setGuess(guess + digit);
   }
 
   function pressBackspace() {
+    if (pitching) return;
     setError("");
     setGuess(guess.slice(0, -1));
   }
 
+  /**
+   * 투구 시퀀스:
+   *  클릭 즉시 투구 모션 시작 → fetch와 모션(450ms)을 병렬로 대기
+   *  → 포구 정지(최소 120ms) → 심판 콜 + 기록 추가 → 대기 자세 복귀
+   * 저감 모션 환경에서는 대기 없이 즉시 결과만 표시한다.
+   */
   async function submitGuess() {
     if (guess.length !== ANSWER_LENGTH || loading) return;
     setLoading(true);
     setError("");
+    const reduced = prefersReducedMotion();
+    setPitch(reduced ? "idle" : "throw");
     try {
-      const res = await fetch(`/api/game/${gameId}/guess`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ guess }),
-      });
+      const [res] = await Promise.all([
+        fetch(`/api/game/${gameId}/guess`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ guess }),
+        }),
+        sleep(reduced ? 0 : PITCH_MS),
+      ]);
       const data = await res.json();
       if (!res.ok) {
+        setPitch("idle");
         setError(errorMessage(data.error));
         return;
       }
+
+      if (!reduced) {
+        setPitch("caught");
+        await sleep(CAUGHT_MIN_MS);
+      }
+
+      const judged: PitchResult = { strike: data.strike, ball: data.ball };
+      setLastResult(judged);
+      setPitch(reduced ? "idle" : pitchStateFor(judged, ANSWER_LENGTH));
       setHistory((prev) => [
         { guess, strike: data.strike, ball: data.ball, out: data.out },
         ...prev,
       ]);
       setGuess("");
+
       if (data.status === "WIN") {
+        const seconds = Math.round((Date.now() - startTimeRef.current) / 1000);
+        await sleep(reduced ? 0 : WIN_HOLD_MS);
         setResult({
           status: "WIN",
           answer: data.answer,
           tryCount: data.tryCount,
-          seconds: Math.round((Date.now() - startTimeRef.current) / 1000),
+          seconds,
         });
         setPhase("done");
+      } else {
+        await sleep(reduced ? 0 : CALL_HOLD_MS);
       }
+      setPitch("idle");
     } catch {
+      setPitch("idle");
       setError("서버에 연결할 수 없어요.");
     } finally {
       setLoading(false);
@@ -184,7 +253,7 @@ export default function PlayPage() {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase, guess, loading, gameId]);
+  }, [phase, guess, loading, gameId, pitching]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -219,16 +288,24 @@ export default function PlayPage() {
           {/* 전광판 헤더 */}
           <section className="flex items-center justify-between rounded-2xl border border-border-line bg-surface px-5 py-3">
             <div className="text-sm">
-              <span className="text-muted">타자</span>{" "}
+              <span className="text-muted">투수</span>{" "}
               <span className="font-bold">{nickname}</span>
             </div>
             <div className="font-mono text-sm text-accent">
-              {history.length} 회 시도
+              {history.length}구
             </div>
           </section>
 
           {/* 현재 입력 */}
           <section className="rounded-2xl border border-border-line bg-surface p-5">
+            <div className="mb-4">
+              <PitchStage state={pitch} result={lastResult} />
+            </div>
+            {/* 스크린리더용 판정 안내 */}
+            <p className="sr-only" aria-live="polite">
+              {lastResult ? describeResult(lastResult) : ""}
+            </p>
+
             <div className="flex justify-center gap-3">
               {Array.from({ length: ANSWER_LENGTH }, (_, i) => (
                 <div
@@ -257,7 +334,9 @@ export default function PlayPage() {
                         key={d}
                         onClick={() => pressDigit(d)}
                         disabled={
-                          guess.includes(d) || guess.length >= ANSWER_LENGTH
+                          pitching ||
+                          guess.includes(d) ||
+                          guess.length >= ANSWER_LENGTH
                         }
                         className={`h-12 rounded-xl border font-mono text-lg font-bold transition active:scale-95 disabled:opacity-30 ${
                           triedDigits.has(d)
@@ -273,7 +352,7 @@ export default function PlayPage() {
                 <div className="mx-auto mt-2 grid max-w-xs grid-cols-2 gap-2">
                   <button
                     onClick={pressBackspace}
-                    disabled={guess.length === 0}
+                    disabled={pitching || guess.length === 0}
                     className="h-12 rounded-xl border border-border-line bg-surface-raised font-bold transition active:scale-95 disabled:opacity-30"
                   >
                     ⌫ 지우기
@@ -283,20 +362,20 @@ export default function PlayPage() {
                     disabled={guess.length !== ANSWER_LENGTH || loading}
                     className="h-12 rounded-xl bg-accent font-bold text-background transition hover:brightness-110 active:scale-95 disabled:opacity-40"
                   >
-                    타격! ⚾
+                    투구! ⚾
                   </button>
                 </div>
                 <p className="mt-3 text-center text-xs text-muted">
-                  흐리게 표시된 숫자는 이미 시도한 숫자예요
+                  흐리게 표시된 숫자는 이미 던진 숫자예요
                 </p>
               </>
             )}
           </section>
 
-          {/* 시도 내역 */}
+          {/* 투구 기록 */}
           {history.length > 0 && (
             <section className="rounded-2xl border border-border-line bg-surface p-5">
-              <h2 className="mb-3 text-sm font-bold text-muted">시도 내역</h2>
+              <h2 className="mb-3 text-sm font-bold text-muted">투구 기록</h2>
               <ul className="flex flex-col gap-2">
                 {history.map((item, i) => (
                   <li
@@ -324,7 +403,7 @@ export default function PlayPage() {
                       )}
                       {item.strike === 0 && item.ball === 0 && (
                         <span className="rounded-md bg-out/15 px-2 py-0.5 text-out">
-                          OUT
+                          낫싱
                         </span>
                       )}
                     </div>
@@ -375,7 +454,7 @@ export default function PlayPage() {
               {result.status === "WIN" ? "🎉" : "😢"}
             </p>
             <h2 className="mt-2 text-xl font-bold">
-              {result.status === "WIN" ? "홈런! 정답입니다!" : "게임 포기"}
+              {result.status === "WIN" ? "정답입니다!" : "게임 포기"}
             </h2>
             <p className="mt-4 text-sm text-muted">정답</p>
             <p className="font-mono text-4xl font-bold tracking-widest text-accent">
@@ -383,7 +462,7 @@ export default function PlayPage() {
             </p>
             {result.status === "WIN" && (
               <p className="mt-3 text-sm text-muted">
-                {result.tryCount}번 만에 · {result.seconds}초 소요
+                {result.tryCount}구 만에 · {result.seconds}초 소요
               </p>
             )}
             <div className="mt-6 flex gap-2">
