@@ -64,8 +64,21 @@ export default function PlayPage() {
       setError(errorMessage(validation.error));
       return;
     }
+    if (loading) return;
+
+    // 낙관적 전환: 생성 응답을 기다리는 동안 친 숫자가 닉네임 입력란으로
+    // 새어 들어가 유실되지 않도록, 게임 화면을 먼저 띄운다.
+    // gameId가 없는 동안 제출만 막고, 실패하면 직전 단계로 되돌린다.
+    const previousPhase = phase;
     setLoading(true);
     setError("");
+    setGameId("");
+    setHistory([]);
+    setGuess("");
+    setResult(null);
+    setConfirmingGiveUp(false);
+    setPhase("playing");
+
     try {
       const res = await fetch("/api/game", {
         method: "POST",
@@ -74,6 +87,7 @@ export default function PlayPage() {
       });
       const data = await res.json();
       if (!res.ok) {
+        setPhase(previousPhase);
         setError(errorMessage(data.error));
         return;
       }
@@ -82,13 +96,11 @@ export default function PlayPage() {
       } catch {
         // 무시
       }
-      setGameId(data.gameId);
-      setHistory([]);
-      setGuess("");
-      setResult(null);
+      // 소요 시간은 게임이 실제로 만들어진 시점부터 잰다
       startTimeRef.current = Date.now();
-      setPhase("playing");
+      setGameId(data.gameId);
     } catch {
+      setPhase(previousPhase);
       setError("서버에 연결할 수 없어요.");
     } finally {
       setLoading(false);
@@ -107,7 +119,8 @@ export default function PlayPage() {
   }
 
   async function submitGuess() {
-    if (guess.length !== ANSWER_LENGTH || loading) return;
+    // gameId가 아직 없으면(생성 응답 대기 중) 입력은 유지한 채 제출만 보류한다
+    if (guess.length !== ANSWER_LENGTH || loading || !gameId) return;
     setLoading(true);
     setError("");
     try {
@@ -143,7 +156,9 @@ export default function PlayPage() {
   }
 
   async function giveUp() {
-    setConfirmingGiveUp(false);
+    if (loading) return;
+    // 확인 바는 요청이 끝날 때까지 열어둔다 — 진행 상태를 보여줄 자리가 필요하고,
+    // 실패하면 그 자리에서 바로 다시 시도할 수 있어야 한다
     setLoading(true);
     setError("");
     try {
@@ -153,6 +168,7 @@ export default function PlayPage() {
         setError(errorMessage(data.error));
         return;
       }
+      setConfirmingGiveUp(false);
       setResult({
         status: "GIVE_UP",
         answer: data.answer,
@@ -217,7 +233,7 @@ export default function PlayPage() {
               <span className="font-bold">{nickname}</span>
             </div>
             <div className="font-mono text-sm text-accent">
-              {history.length} 회 시도
+              {gameId ? `${history.length} 회 시도` : "준비 중..."}
             </div>
           </section>
 
@@ -270,7 +286,9 @@ export default function PlayPage() {
                   </button>
                   <button
                     onClick={submitGuess}
-                    disabled={guess.length !== ANSWER_LENGTH || loading}
+                    disabled={
+                      guess.length !== ANSWER_LENGTH || loading || !gameId
+                    }
                     className="h-12 rounded-xl bg-accent font-bold text-background transition hover:brightness-110 active:scale-95 disabled:opacity-40"
                   >
                     타격! ⚾
@@ -330,13 +348,14 @@ export default function PlayPage() {
                 <button
                   onClick={giveUp}
                   disabled={loading}
-                  className="font-bold text-red-400 transition hover:brightness-110"
+                  className="font-bold text-red-400 transition hover:brightness-110 disabled:opacity-50"
                 >
-                  정말 포기
+                  {loading ? "포기하는 중..." : "정말 포기"}
                 </button>
                 <button
                   onClick={() => setConfirmingGiveUp(false)}
-                  className="font-bold text-strike transition hover:brightness-110"
+                  disabled={loading}
+                  className="font-bold text-strike transition hover:brightness-110 disabled:opacity-50"
                 >
                   계속하기
                 </button>
