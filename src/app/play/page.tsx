@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Confetti from "@/components/Confetti";
 import { ANSWER_LENGTH, validateNickname } from "@/lib/game";
@@ -57,12 +57,6 @@ export default function PlayPage() {
       // localStorage 접근 불가 환경은 무시
     }
   }, []);
-
-  const triedDigits = useMemo(() => {
-    const set = new Set<string>();
-    for (const item of history) for (const d of item.guess) set.add(d);
-    return set;
-  }, [history]);
 
   async function startGame() {
     const validation = validateNickname(nickname);
@@ -259,11 +253,7 @@ export default function PlayPage() {
                         disabled={
                           guess.includes(d) || guess.length >= ANSWER_LENGTH
                         }
-                        className={`h-12 rounded-xl border font-mono text-lg font-bold transition active:scale-95 disabled:opacity-30 ${
-                          triedDigits.has(d)
-                            ? "border-border-line bg-background text-muted"
-                            : "border-border-line bg-surface-raised hover:border-accent"
-                        }`}
+                        className="h-12 rounded-xl border border-border-line bg-surface-raised font-mono text-lg font-bold transition hover:border-accent active:scale-95 disabled:opacity-30"
                       >
                         {d}
                       </button>
@@ -286,9 +276,6 @@ export default function PlayPage() {
                     타격! ⚾
                   </button>
                 </div>
-                <p className="mt-3 text-center text-xs text-muted">
-                  흐리게 표시된 숫자는 이미 시도한 숫자예요
-                </p>
               </>
             )}
           </section>
